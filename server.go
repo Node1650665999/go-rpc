@@ -75,7 +75,7 @@ func (server *Server) serveCodec(cc codec.Codec, opt *Option) {
 	sending := new(sync.Mutex) // make sure to send a complete response
 	wg := new(sync.WaitGroup)  // wait until all request are handled
 
-	//同一个连接上可能会有多个请求: 例如 get,post不同的url等, 所以这里使用了 for
+    //同一个连接上可能会有多个请求: 例如 get,post不同的url请求,因此这里使用了 for 无限制地等待请求的到来
 	for {
 		//读取参数
 		req, err := server.readRequest(cc)
@@ -89,7 +89,9 @@ func (server *Server) serveCodec(cc codec.Codec, opt *Option) {
 			continue
 		}
 		wg.Add(1)
-		//响应
+		//并发处理一个连接上的多个请求(每一个请求一个goroutine)
+		//  注意:尽管处理请求是并发的,但是回复请求的报文必须是逐个发送的，
+		//  并发容易导致多个回复报文交织在一起，客户端无法解析，在这里使用锁(sending)保证。
 		go server.handleRequest(cc, req, sending, wg, opt.HandleTimeout)
 	}
 	wg.Wait()
